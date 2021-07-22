@@ -25,49 +25,53 @@ public class CharmJeiPlugin implements IModPlugin
     @Override
     public void registerCategories(IRecipeCategoryRegistration registry)
     {
-        composter = new ComposterCategory(registry.getJeiHelpers().getGuiHelper());
-        registry.addRecipeCategories(composter);
+        if (Charm.hasFeature(Composter.class)) {
+            composter = new ComposterCategory(registry.getJeiHelpers().getGuiHelper());
+            registry.addRecipeCategories(composter);
+        }
     }
 
     @Override
     public void register(IModRegistry registry)
     {
-        // set all potential composter outputs
-        List<String> composterOutputs = Composter.outputs;
-        List<ItemStack> outputs = new ArrayList<>();
+        if (Charm.hasFeature(Composter.class)) {
+            // set all potential composter outputs
+            List<String> composterOutputs = Composter.outputs;
+            List<ItemStack> outputs = new ArrayList<>();
 
-        composterOutputs.forEach(name -> outputs.addAll(ItemHelper.getItemStacksFromItemString(name)));
+            composterOutputs.forEach(name -> outputs.addAll(ItemHelper.getItemStacksFromItemString(name)));
 
-        // set inputs by page + chance
-        Map<Float, List<String>> composterInputs = Composter.getInputsByChance();
-        Map<Integer, Map<Float, List<ItemStack>>> inputs = new TreeMap<>();
-        Float[] chances = composterInputs.keySet().toArray(new Float[0]);
-        Arrays.sort(chances);
+            // set inputs by page + chance
+            Map<Float, List<String>> composterInputs = Composter.getInputsByChance();
+            Map<Integer, Map<Float, List<ItemStack>>> inputs = new TreeMap<>();
+            Float[] chances = composterInputs.keySet().toArray(new Float[0]);
+            Arrays.sort(chances);
 
-        int page = 0;
-        for (Float chance : chances) {
-            int i = 0;
-            for (String itemName : composterInputs.get(chance)) {
-                List<ItemStack> stacks = ItemHelper.getItemStacksFromItemString(itemName);
-                for (ItemStack stack : stacks) {
-                    if (!inputs.containsKey(page)) {
-                        inputs.put(page, new HashMap<Float, List<ItemStack>>() {{ put(chance, new ArrayList<>()); }});
+            int page = 0;
+            for (Float chance : chances) {
+                int i = 0;
+                for (String itemName : composterInputs.get(chance)) {
+                    List<ItemStack> stacks = ItemHelper.getItemStacksFromItemString(itemName);
+                    for (ItemStack stack : stacks) {
+                        if (!inputs.containsKey(page)) {
+                            inputs.put(page, new HashMap<Float, List<ItemStack>>() {{ put(chance, new ArrayList<>()); }});
+                        }
+                        inputs.get(page).get(chance).add(stack);
+                        page += (++i % 36 == 0) ? 1 : 0; // if there are more than 36 input items, add a "page"
                     }
-                    inputs.get(page).get(chance).add(stack);
-                    page += (++i % 36 == 0) ? 1 : 0; // if there are more than 36 input items, add a "page"
                 }
+                page++;
             }
-            page++;
-        }
 
-        registry.addRecipeCatalyst(new ItemStack(Composter.composter), composter.getUid());
-        registry.addRecipes(inputs.keySet()
-                .stream()
-                .map(p -> {
-                    Map.Entry<Float, List<ItemStack>> entry = inputs.get(p).entrySet().iterator().next(); // this is crazy right
-                    return new ComposterRecipe(entry.getValue(), outputs, entry.getKey());
-                })
-                .collect(Collectors.toList()), composter.getUid());
+            registry.addRecipeCatalyst(new ItemStack(Composter.composter), composter.getUid());
+            registry.addRecipes(inputs.keySet()
+                    .stream()
+                    .map(p -> {
+                        Map.Entry<Float, List<ItemStack>> entry = inputs.get(p).entrySet().iterator().next(); // this is crazy right
+                        return new ComposterRecipe(entry.getValue(), outputs, entry.getKey());
+                    })
+                    .collect(Collectors.toList()), composter.getUid());
+        }
 
         // add JEI descriptions for flavored cake.  Fix #139
         if (Charm.hasFeature(FlavoredCake.class)) {
